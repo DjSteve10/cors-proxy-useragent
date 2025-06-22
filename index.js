@@ -7,18 +7,18 @@ app.use(cors());
 
 app.get('/proxy', (req, res) => {
   const targetUrl = req.query.url;
-  if (!targetUrl) {
-    return res.status(400).send('Missing url parameter');
-  }
+  if (!targetUrl) return res.status(400).send('Missing url parameter');
 
-  req.pipe(
-    request({
-      url: targetUrl,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
-      }
-    })
-  ).pipe(res);
+  const headers = {
+    'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0',
+    'Referer': 'https://google.com',
+    'Accept': '*/*',
+    'Origin': 'https://google.com'
+  };
+
+  request({ url: targetUrl, headers }).on('error', err => {
+    res.status(500).send(`Proxy error: ${err.message}`);
+  }).pipe(res);
 });
 
 const PORT = process.env.PORT || 10000;
