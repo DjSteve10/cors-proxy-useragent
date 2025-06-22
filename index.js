@@ -1,24 +1,38 @@
+// index.js
 const express = require('express');
 const cors = require('cors');
-const request = require('request');
-const app = express();
+const https = require('https');
+const http = require('http');
+const { URL } = require('url');
 
+const app = express();
 app.use(cors());
 
 app.get('/proxy', (req, res) => {
   const targetUrl = req.query.url;
   if (!targetUrl) return res.status(400).send('Missing url parameter');
 
-  const headers = {
-    'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0',
-    'Referer': 'https://google.com',
-    'Accept': '*/*',
-    'Origin': 'https://google.com'
-  };
+  try {
+    const parsedUrl = new URL(targetUrl);
+    const lib = parsedUrl.protocol === 'https:' ? https : http;
 
-  request({ url: targetUrl, headers }).on('error', err => {
-    res.status(500).send(`Proxy error: ${err.message}`);
-  }).pipe(res);
+    const options = {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+        'Accept': '*/*',
+        'Referer': parsedUrl.origin
+      }
+    };
+
+    lib.get(targetUrl, options, (response) => {
+      res.writeHead(response.statusCode, response.headers);
+      response.pipe(res);
+    }).on('error', (err) => {
+      res.status(500).send('Proxy error: ' + err.message);
+    });
+  } catch (e) {
+    res.status(400).send('Invalid URL');
+  }
 });
 
 const PORT = process.env.PORT || 10000;
